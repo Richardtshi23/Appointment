@@ -1,0 +1,15 @@
+**/.git
+**/.vs
+**/.vscode
+**/*.user
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/npm-debug.log
+Dockerfile*
+docker-compose*

@@ -1,0 +1,63 @@
+<div class="wizard">
+  <h1>Book an Appointment</h1>
+
+  <div *ngIf="confirmationResult; else formTpl" class="confirmation">
+    <h2>Booking confirmed</h2>
+    <p>Confirmation code: <strong>{{ confirmationResult.confirmationCode }}</strong></p>
+    <p>Starts: {{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : 'UTC' }}</p>
+    <p>Ends: {{ confirmationResult.endTime | date: 'HH:mm' : 'UTC' }}</p>
+    <p>Status: {{ confirmationResult.status }}</p>
+    <p class="hint">A confirmation has been sent to your email and phone (simulated).</p>
+    <button type="button" (click)="reset()">Book another appointment</button>
+  </div>
+
+  <ng-template #formTpl>
+    <form [formGroup]="bookingForm" (ngSubmit)="onSubmit()">
+      <label>Branch
+        <select formControlName="branchId">
+          <option value="">Select a branch</option>
+          <option *ngFor="let b of branches" [value]="b.id">{{ b.name }} - {{ b.address }}</option>
+        </select>
+      </label>
+
+      <label>Service
+        <select formControlName="serviceId">
+          <option value="">Select a service</option>
+          <option *ngFor="let s of services" [value]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
+        </select>
+      </label>
+
+      <label>Date
+        <input type="date" formControlName="date" [min]="today" />
+      </label>
+
+      <div *ngIf="availableSlots.length" class="slots">
+        <span>Available times</span>
+        <button type="button" *ngFor="let slot of availableSlots"
+                [class.selected]="bookingForm.value.selectedSlot === slot"
+                (click)="selectSlot(slot)">
+          {{ slotLabel(slot) }}
+        </button>
+      </div>
+      <p *ngIf="!availableSlots.length && bookingForm.value.branchId && bookingForm.value.serviceId && bookingForm.value.date">
+        No available slots for this date.
+      </p>
+
+      <label>Name
+        <input type="text" formControlName="customerName" maxlength="100" />
+      </label>
+      <label>Email
+        <input type="email" formControlName="customerEmail" />
+      </label>
+      <label>Phone
+        <input type="tel" formControlName="customerPhone" />
+      </label>
+
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <button type="submit" [disabled]="bookingForm.invalid || loading">
+        {{ loading ? 'Booking...' : 'Book appointment' }}
+      </button>
+    </form>
+  </ng-template>
+</div>
