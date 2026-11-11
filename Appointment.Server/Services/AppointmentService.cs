@@ -9,8 +9,6 @@ namespace Appointment.Server.Services
 {
     public class AppointmentService : IAppointmentService
     {
-        // Serialises check-then-insert within this process so two requests cannot book the same slot.
-        // A multi-instance deployment needs a database-level guarantee instead (see README).
         private static readonly SemaphoreSlim BookingLock = new(1, 1);
 
         private readonly AppDBContext _context;
@@ -103,6 +101,42 @@ namespace Appointment.Server.Services
             }
         }
 
+        public async Task<AppointmentResultDto> CancelAppointmentAsync(Guid id, CancellationToken ct = default)
+        {
+            var appointment = await _context.Appointments
+                .Include(a => a.Service)
+                .FirstOrDefaultAsync(a => a.Id == id, ct)
+                ?? throw new NotFoundException("Appointment not found.");
+
+            if (appointment.Status != AppointmentStatus.Cancelled)
+            {
+                if (appointment.StartTime <= _clock.GetUtcNow().UtcDateTime)
+                    throw new BusinessRuleException("Appointments that have already started cannot be cancelled.");
+
+                appointment.Status = AppointmentStatus.Cancelled;
+                await _context.SaveChangesAsync(ct);
+                _logger.LogInformation("Appointment {AppointmentId} cancelled", appointment.Id);
+
+                try
+                {
+                    await _notifications.SendCancellationAsync(appointment, appointment.Service.Name, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send cancellation notice for appointment {AppointmentId}", appointment.Id);
+                }
+            }
+
+            return new AppointmentResultDto
+            {
+                Id = appointment.Id,
+                ConfirmationCode = appointment.ConfirmationCode,
+                StartTime = appointment.StartTime,
+                EndTime = appointment.EndTime,
+                Status = appointment.Status.ToString()
+            };
+        }
+
         public async Task<IReadOnlyList<TimeSpan>> GetAvailableSlotsAsync(Guid branchId, Guid serviceId, DateTime date, CancellationToken ct = default)
         {
             var service = await _context.Services.AsNoTracking().FirstOrDefaultAsync(s => s.Id == serviceId, ct)
@@ -117,7 +151,6 @@ namespace Appointment.Server.Services
             var endOfDay = startOfDay.AddDays(1);
             var now = _clock.GetUtcNow().UtcDateTime;
 
-            // A branch is a single resource: any booking at the branch blocks the slot, whatever the service.
             var booked = await _context.Appointments.AsNoTracking()
                 .Where(a => a.BranchId == branchId
                             && a.Status != AppointmentStatus.Cancelled
@@ -164,7 +197,6 @@ namespace Appointment.Server.Services
 
         private async Task NotifyAsync(Models.Appointment appointment, string serviceName, CancellationToken ct)
         {
-            // The booking is already committed; a notification failure must not fail the request.
             try
             {
                 await _notifications.SendBookingConfirmationAsync(appointment, serviceName, ct);

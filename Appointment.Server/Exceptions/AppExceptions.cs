@@ -1,6 +1,5 @@
 namespace Appointment.Server.Exceptions
 {
-    /// <summary>Base type for expected, client-facing failures. The exception middleware maps these to HTTP status codes.</summary>
     public abstract class AppException : Exception
     {
         protected AppException(string message) : base(message) { }

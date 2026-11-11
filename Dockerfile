@@ -8,7 +8,7 @@ RUN npm ci
 COPY appointment.client/ ./
 RUN npx ng build --configuration production
 
-# ---- 2. .NET restore/build (also usable as a test target: docker build --target test .) ----
+# ---- 2. .NET restore/build 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS server-build
 WORKDIR /src
 ENV SkipSpa=true

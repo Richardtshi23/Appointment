@@ -25,6 +25,17 @@ namespace Appointment.Server.Controllers
             return Created($"/api/appointments/{result.Id}", result);
         }
 
+        /// <summary>Cancels a confirmed appointment, freeing its slot. Cancelling twice is a no-op.</summary>
+        [HttpPost("{id:guid}/cancel")]
+        [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CancelAppointment(Guid id, CancellationToken ct)
+        {
+            var result = await _appointments.CancelAppointmentAsync(id, ct);
+            return Ok(result);
+        }
+
         /// <summary>Returns the start times (HH:mm) still free on the given date.</summary>
         [HttpGet("available-slots")]
         [ProducesResponseType(typeof(IEnumerable<string>), StatusCodes.Status200OK)]

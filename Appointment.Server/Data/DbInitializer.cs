@@ -11,7 +11,6 @@ namespace Appointment.Server.Data
             var db = scope.ServiceProvider.GetRequiredService<AppDBContext>();
             var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
 
-            // Migrations target SQL Server; other providers (e.g. SQLite in tests) build the schema from the model.
             if (db.Database.IsSqlServer())
                 await db.Database.MigrateAsync();
             else
@@ -40,7 +39,6 @@ namespace Appointment.Server.Data
             db.Branches.AddRange(branches);
             db.Services.AddRange(catalog);
 
-            // Cape Town and Sandton offer everything; Umhlanga offers a subset.
             foreach (var b in branches.Take(2))
                 foreach (var s in catalog)
                     db.BranchServices.Add(new BranchService { BranchId = b.Id, ServiceId = s.Id });

@@ -10,9 +10,8 @@ namespace Appointment.Tests;
 
 public class ApiIntegrationTests : IClassFixture<ApiIntegrationTests.Factory>
 {
-    // Seeded by DbInitializer
     private static readonly Guid Branch = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid Service = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static readonly Guid Service = Guid.Parse("22222222-2222-2222-2222-222222222221");
 
     public class Factory : WebApplicationFactory<Program>
     {
@@ -109,5 +108,11 @@ public class ApiIntegrationTests : IClassFixture<ApiIntegrationTests.Factory>
 
         var conflict = await _client.PostAsJsonAsync("/api/appointments", body);
         Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+
+        var cancel = await _client.PostAsync($"/api/appointments/{result.Id}/cancel", null);
+        Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
+        var slotsFreed = await _client.GetFromJsonAsync<List<string>>(
+            $"/api/appointments/available-slots?branchId={Branch}&serviceId={Service}&date={dateStr}");
+        Assert.Contains("10:00", slotsFreed!);
     }
 }

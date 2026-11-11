@@ -19,6 +19,8 @@ export class BookingWizardComponent implements OnInit {
   confirmationResult: AppointmentResultDto | null = null;
   loading = false;
   errorMessage = '';
+  confirmingCancel = false;
+  cancelling = false;
   readonly today = new Date().toISOString().substring(0, 10);
 
   constructor(private fb: FormBuilder, private appointmentService: AppointmentService) {
@@ -122,8 +124,38 @@ export class BookingWizardComponent implements OnInit {
     this.bookingForm.patchValue({ selectedSlot: '' }, { emitEvent: false });
   }
 
+  askCancel(): void {
+    this.confirmingCancel = true;
+    this.errorMessage = '';
+  }
+
+  dismissCancel(): void {
+    this.confirmingCancel = false;
+  }
+
+  confirmCancel(): void {
+    if (!this.confirmationResult) return;
+    this.cancelling = true;
+    this.errorMessage = '';
+
+    this.appointmentService.cancelAppointment(this.confirmationResult.id).subscribe({
+      next: (result) => {
+        this.confirmationResult = result;
+        this.confirmingCancel = false;
+        this.cancelling = false;
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'An error occurred while cancelling.';
+        this.confirmingCancel = false;
+        this.cancelling = false;
+      }
+    });
+  }
+
   reset(): void {
     this.confirmationResult = null;
+    this.confirmingCancel = false;
+    this.cancelling = false;
     this.errorMessage = '';
     this.services = [];
     this.availableSlots = [];

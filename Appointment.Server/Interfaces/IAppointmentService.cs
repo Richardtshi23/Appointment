@@ -5,6 +5,7 @@ namespace Appointment.Server.Interfaces
     public interface IAppointmentService
     {
         Task<AppointmentResultDto> BookAppointmentAsync(CreateAppointmentDto dto, CancellationToken ct = default);
+        Task<AppointmentResultDto> CancelAppointmentAsync(Guid id, CancellationToken ct = default);
         Task<IReadOnlyList<TimeSpan>> GetAvailableSlotsAsync(Guid branchId, Guid serviceId, DateTime date, CancellationToken ct = default);
     }
 }

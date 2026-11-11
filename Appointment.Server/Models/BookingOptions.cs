@@ -1,6 +1,5 @@
 namespace Appointment.Server.Models
 {
-    /// <summary>Opening hours and slot grid. Times are wall-clock values expressed in UTC.</summary>
     public class BookingOptions
     {
         public const string SectionName = "Booking";

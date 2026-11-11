@@ -18,7 +18,7 @@ export interface CreateAppointmentDto {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  startTime: string; // ISO string format
+  startTime: string;
 }
 
 export interface AppointmentResultDto {

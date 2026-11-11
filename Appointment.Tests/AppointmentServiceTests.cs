@@ -49,6 +49,29 @@ public class AppointmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Cancelling_frees_the_slot_notifies_and_is_idempotent()
+    {
+        using var ctx = _db.CreateContext();
+        var svc = _db.CreateService(ctx);
+        var booked = await svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(10)));
+
+        var cancelled = await svc.CancelAppointmentAsync(booked.Id);
+        await svc.CancelAppointmentAsync(booked.Id);
+
+        Assert.Equal("Cancelled", cancelled.Status);
+        Assert.Single(_db.Notifier.Cancelled);
+        var slots = await svc.GetAvailableSlotsAsync(TestDb.BranchId, TestDb.HalfHourServiceId, TestDb.Tomorrow);
+        Assert.Contains(new TimeSpan(10, 0, 0), slots);
+    }
+
+    [Fact]
+    public async Task Cancelling_unknown_appointment_is_not_found()
+    {
+        using var ctx = _db.CreateContext();
+        await Assert.ThrowsAsync<NotFoundException>(() => _db.CreateService(ctx).CancelAppointmentAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
     public async Task Double_booking_is_rejected_with_conflict()
     {
         using var ctx = _db.CreateContext();
@@ -131,7 +154,6 @@ public class AppointmentServiceTests : IDisposable
     public async Task Slots_in_the_past_are_not_offered()
     {
         using var ctx = _db.CreateContext();
-        // "Now" is 2030-01-01 08:00, so on that day 09:00 is still future but 08:00 never offered
         var slots = await _db.CreateService(ctx)
             .GetAvailableSlotsAsync(TestDb.BranchId, TestDb.HalfHourServiceId, TestDb.Now.UtcDateTime.Date);
         Assert.Equal(new TimeSpan(9, 0, 0), slots.First());

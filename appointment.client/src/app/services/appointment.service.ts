@@ -7,7 +7,7 @@ import { Branch, ServiceItem, CreateAppointmentDto, AppointmentResultDto } from 
   providedIn: 'root'
 })
 export class AppointmentService {
-  // Relative URL: forwarded to the backend by src/proxy.conf.js during `ng serve`
+  // This is a  relative URL: forwarded to the backend by src/proxy.conf.js during `ng serve` incase anyone needs to know
   private apiUrl = '/api';
 
   constructor(private http: HttpClient) {}
@@ -31,5 +31,9 @@ export class AppointmentService {
 
   bookAppointment(dto: CreateAppointmentDto): Observable<AppointmentResultDto> {
     return this.http.post<AppointmentResultDto>(`${this.apiUrl}/appointments`, dto);
+  }
+
+  cancelAppointment(id: string): Observable<AppointmentResultDto> {
+    return this.http.post<AppointmentResultDto>(`${this.apiUrl}/appointments/${id}/cancel`, {});
   }
 }

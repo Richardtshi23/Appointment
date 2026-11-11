@@ -38,7 +38,7 @@ builder.Services.AddSwaggerGen(o =>
 });
 
 builder.Services.AddDbContext<AppDBContext>(o =>
-    o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+    o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.Configure<BookingOptions>(builder.Configuration.GetSection(BookingOptions.SectionName));
 builder.Services.AddSingleton(TimeProvider.System);
@@ -63,7 +63,6 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// TLS is terminated by the host/proxy when running in a container
 if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
 {
     app.UseHttpsRedirection();
@@ -72,7 +71,6 @@ if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-// Unknown /api routes must 404 rather than return the SPA shell
 app.Map("/api/{**rest}", () => Results.NotFound());
 app.MapFallbackToFile("/index.html");
 

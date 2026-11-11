@@ -25,18 +25,24 @@ public class RecordingNotifier : INotificationService
         Sent.Add(appointment.ConfirmationCode);
         return Task.CompletedTask;
     }
+
+    public List<string> Cancelled { get; } = new();
+
+    public Task SendCancellationAsync(Server.Models.Appointment appointment, string serviceName, CancellationToken ct = default)
+    {
+        Cancelled.Add(appointment.ConfirmationCode);
+        return Task.CompletedTask;
+    }
 }
 
-/// <summary>Real SQLite (in-memory) so queries run against the same provider as production.</summary>
 public sealed class TestDb : IDisposable
 {
-    public static readonly Guid BranchId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    public static readonly Guid OtherBranchId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid BranchId =     Guid.Parse("99999999-9999-9999-9999-999999999991");
+    public static readonly Guid OtherBranchId = Guid.Parse("99999999-9999-9999-9999-999999999992");
     public static readonly Guid HourServiceId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid HalfHourServiceId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
     public static readonly Guid UnofferedServiceId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
-    // 2030-01-01 08:00 UTC, so 2030-01-02 is always in the future
     public static readonly DateTimeOffset Now = new(2030, 1, 1, 8, 0, 0, TimeSpan.Zero);
     public static readonly DateTime Tomorrow = new(2030, 1, 2, 0, 0, 0, DateTimeKind.Utc);
 

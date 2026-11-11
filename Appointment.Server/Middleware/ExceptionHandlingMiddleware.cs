@@ -3,11 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Appointment.Server.Middleware
 {
-    /// <summary>
-    /// Catches unhandled exceptions, logs them and returns an RFC 7807 problem response.
-    /// Known <see cref="AppException"/>s surface their message; anything else returns a generic 500
-    /// so internal details never leak to clients.
-    /// </summary>
     public class ExceptionHandlingMiddleware
     {
         private readonly RequestDelegate _next;
@@ -61,7 +56,6 @@ namespace Appointment.Server.Middleware
 
             problem.Instance = context.Request.Path;
             problem.Extensions["traceId"] = context.TraceIdentifier;
-            // Convenience field consumed by the Angular client
             problem.Extensions["message"] = problem.Detail;
 
             if (context.Response.HasStarted)

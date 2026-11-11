@@ -1,18 +1,47 @@
 <div class="wizard">
   <h1>Book an Appointment</h1>
+  <p class="subtitle">Choose a branch, service and time that suits you.</p>
 
-  <div *ngIf="confirmationResult; else formTpl" class="confirmation">
-    <h2>Booking confirmed</h2>
-    <p>Confirmation code: <strong>{{ confirmationResult.confirmationCode }}</strong></p>
-    <p>Starts: {{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : 'UTC' }}</p>
-    <p>Ends: {{ confirmationResult.endTime | date: 'HH:mm' : 'UTC' }}</p>
-    <p>Status: {{ confirmationResult.status }}</p>
-    <p class="hint">A confirmation has been sent to your email and phone (simulated).</p>
-    <button type="button" (click)="reset()">Book another appointment</button>
+  <div *ngIf="confirmationResult; else formTpl" class="card confirmation"
+       [class.cancelled]="confirmationResult.status === 'Cancelled'">
+    <div class="status-icon">{{ confirmationResult.status === 'Cancelled' ? '✕' : '✓' }}</div>
+    <h2>{{ confirmationResult.status === 'Cancelled' ? 'Appointment cancelled' : 'Booking confirmed' }}</h2>
+    <p class="code">{{ confirmationResult.confirmationCode }}</p>
+    <dl>
+      <dt>Starts</dt><dd>{{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : 'UTC' }}</dd>
+      <dt>Ends</dt><dd>{{ confirmationResult.endTime | date: 'HH:mm' : 'UTC' }}</dd>
+      <dt>Status</dt><dd><span class="badge">{{ confirmationResult.status }}</span></dd>
+    </dl>
+    <p class="hint" *ngIf="confirmationResult.status !== 'Cancelled'">
+      A confirmation has been sent to your email and phone (simulated).
+    </p>
+    <p class="hint" *ngIf="confirmationResult.status === 'Cancelled'">
+      Your slot has been released. A cancellation notice has been sent (simulated).
+    </p>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <div class="cancel-confirm" *ngIf="confirmingCancel">
+      <p>Are you sure you want to cancel this appointment?</p>
+      <div class="actions">
+        <button type="button" class="btn danger" (click)="confirmCancel()" [disabled]="cancelling">
+          {{ cancelling ? 'Cancelling...' : 'Yes, cancel it' }}
+        </button>
+        <button type="button" class="btn secondary" (click)="dismissCancel()" [disabled]="cancelling">Keep it</button>
+      </div>
+    </div>
+
+    <div class="actions" *ngIf="!confirmingCancel">
+      <button type="button" class="btn danger-outline"
+              *ngIf="confirmationResult.status !== 'Cancelled'" (click)="askCancel()">
+        Cancel appointment
+      </button>
+      <button type="button" class="btn" (click)="reset()">Book another appointment</button>
+    </div>
   </div>
 
   <ng-template #formTpl>
-    <form [formGroup]="bookingForm" (ngSubmit)="onSubmit()">
+    <form class="card" [formGroup]="bookingForm" (ngSubmit)="onSubmit()">
       <label>Branch
         <select formControlName="branchId">
           <option value="">Select a branch</option>
@@ -55,7 +84,7 @@
 
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
-      <button type="submit" [disabled]="bookingForm.invalid || loading">
+      <button type="submit" class="btn" [disabled]="bookingForm.invalid || loading">
         {{ loading ? 'Booking...' : 'Book appointment' }}
       </button>
     </form>
