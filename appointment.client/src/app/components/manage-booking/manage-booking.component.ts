@@ -19,6 +19,7 @@ export class ManageBookingComponent implements OnInit {
   cancelling = false;
   confirmingCancel = false;
   errorMessage = '';
+  private email = '';
 
   constructor(
     private fb: FormBuilder,
@@ -47,8 +48,9 @@ export class ManageBookingComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
     const { code, email } = this.lookupForm.value;
+    this.email = email.trim();
 
-    this.appointmentService.findAppointment(code.trim(), email.trim()).subscribe({
+    this.appointmentService.findAppointment(code.trim(), this.email).subscribe({
       next: (result) => {
         this.appointment = result;
         this.loading = false;
@@ -75,7 +77,7 @@ export class ManageBookingComponent implements OnInit {
     this.cancelling = true;
     this.errorMessage = '';
 
-    this.appointmentService.cancelAppointment(this.appointment.id).subscribe({
+    this.appointmentService.cancelAppointment(this.appointment.confirmationCode, this.email).subscribe({
       next: (result) => {
         this.appointment = result;
         this.confirmingCancel = false;

@@ -1,8 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, map, merge, of, switchMap, tap } from 'rxjs';
 import { AppointmentService } from '../../services/appointment.service';
 import { Branch, ServiceItem, AppointmentResultDto, CreateAppointmentDto } from '../../models/appointment.model';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const SA_PHONE_PATTERN = /^0[1-8][0-9]{8}$/;
 
 @Component({
   selector: 'app-booking-wizard',
@@ -23,6 +28,9 @@ export class BookingWizardComponent implements OnInit {
   cancelling = false;
   readonly today = new Date().toISOString().substring(0, 10);
 
+  private bookedEmail = '';
+  private destroyRef = inject(DestroyRef);
+
   constructor(private fb: FormBuilder, private appointmentService: AppointmentService) {
     this.bookingForm = this.fb.group({
       branchId: ['', Validators.required],
@@ -30,57 +38,49 @@ export class BookingWizardComponent implements OnInit {
       date: ['', Validators.required],
       selectedSlot: ['', Validators.required],
       customerName: ['', [Validators.required, Validators.maxLength(100)]],
-      customerEmail: ['',       [Validators.required, Validators.email, Validators.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/)]],
-            customerPhone: ['', [Validators.required, Validators.pattern(/^0[1-8][0-9]{8}$/)]]
+      customerEmail: ['', [Validators.required, Validators.email, Validators.pattern(EMAIL_PATTERN)]],
+      customerPhone: ['', [Validators.required, Validators.pattern(SA_PHONE_PATTERN)]]
     });
   }
 
   ngOnInit(): void {
-    this.loadBranches();
-
-    this.bookingForm.get('branchId')?.valueChanges.subscribe(branchId => {
-      this.services = [];
-      this.bookingForm.patchValue({ serviceId: '' }, { emitEvent: false });
-      this.resetSlots();
-      if (branchId) {
-        this.loadServices(branchId);
-      }
-    });
-
-    this.bookingForm.get('serviceId')?.valueChanges.subscribe(() => this.fetchSlots());
-    this.bookingForm.get('date')?.valueChanges.subscribe(() => this.fetchSlots());
-  }
-
-  loadBranches(): void {
     this.appointmentService.getBranches().subscribe({
       next: (data) => this.branches = data,
       error: () => this.errorMessage = 'Failed to load branches.'
     });
-  }
 
-  loadServices(branchId: string): void {
-    this.appointmentService.getServicesForBranch(branchId).subscribe({
-      next: (data) => this.services = data,
-      error: () => this.errorMessage = 'Failed to load services.'
-    });
-  }
+    const branchId = this.bookingForm.get('branchId')!;
+    const serviceId = this.bookingForm.get('serviceId')!;
+    const date = this.bookingForm.get('date')!;
 
-  fetchSlots(): void {
-    this.resetSlots();
-    const { branchId, serviceId, date } = this.bookingForm.value;
-    if (branchId && serviceId && date) {
-      this.appointmentService.getAvailableSlots(branchId, serviceId, date).subscribe({
-        next: (slots) => this.availableSlots = slots,
-        error: () => this.errorMessage = 'Failed to fetch available time slots.'
-      });
-    }
-  }
+    // switchMap drops the previous request, so a slow response can't overwrite a newer one
+    branchId.valueChanges.pipe(
+      tap(() => {
+        this.services = [];
+        this.bookingForm.patchValue({ serviceId: '' }, { emitEvent: false });
+      }),
+      switchMap(id => id
+        ? this.appointmentService.getServicesForBranch(id).pipe(
+            catchError(() => {
+              this.errorMessage = 'Failed to load services.';
+              return of([] as ServiceItem[]);
+            }))
+        : of([] as ServiceItem[])),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(services => this.services = services);
 
-  // Slots may be "HH:mm" or full ISO strings depending on the backend
-  slotLabel(slot: string): string {
-    if (/^\d{2}:\d{2}/.test(slot)) return slot.substring(0, 5);
-    const d = new Date(slot);
-    return isNaN(d.getTime()) ? slot : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    merge(branchId.valueChanges, serviceId.valueChanges, date.valueChanges).pipe(
+      tap(() => this.resetSlots()),
+      map(() => this.bookingForm.value),
+      switchMap(v => v.branchId && v.serviceId && v.date
+        ? this.appointmentService.getAvailableSlots(v.branchId, v.serviceId, v.date).pipe(
+            catchError(() => {
+              this.errorMessage = 'Failed to fetch available time slots.';
+              return of([] as string[]);
+            }))
+        : of([] as string[])),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(slots => this.availableSlots = slots);
   }
 
   selectSlot(slot: string): void {
@@ -94,21 +94,19 @@ export class BookingWizardComponent implements OnInit {
     this.errorMessage = '';
 
     const v = this.bookingForm.value;
-    const startTime = /^\d{2}:\d{2}/.test(v.selectedSlot)
-      ? `${v.date}T${v.selectedSlot.substring(0, 5)}:00Z`
-      : v.selectedSlot;
-
     const dto: CreateAppointmentDto = {
       branchId: v.branchId,
       serviceId: v.serviceId,
       customerName: v.customerName,
       customerEmail: v.customerEmail,
       customerPhone: v.customerPhone,
-      startTime
+      // slots are South African time (SAST, no daylight saving)
+      startTime: `${v.date}T${v.selectedSlot}:00+02:00`
     };
 
     this.appointmentService.bookAppointment(dto).subscribe({
       next: (result) => {
+        this.bookedEmail = dto.customerEmail;
         this.confirmationResult = result;
         this.loading = false;
       },
@@ -138,7 +136,7 @@ export class BookingWizardComponent implements OnInit {
     this.cancelling = true;
     this.errorMessage = '';
 
-    this.appointmentService.cancelAppointment(this.confirmationResult.id).subscribe({
+    this.appointmentService.cancelAppointment(this.confirmationResult.confirmationCode, this.bookedEmail).subscribe({
       next: (result) => {
         this.confirmationResult = result;
         this.confirmingCancel = false;
@@ -157,6 +155,7 @@ export class BookingWizardComponent implements OnInit {
     this.confirmingCancel = false;
     this.cancelling = false;
     this.errorMessage = '';
+    this.bookedEmail = '';
     this.services = [];
     this.availableSlots = [];
     this.bookingForm.reset({ branchId: '', serviceId: '', date: '', selectedSlot: '', customerName: '', customerEmail: '', customerPhone: '' });

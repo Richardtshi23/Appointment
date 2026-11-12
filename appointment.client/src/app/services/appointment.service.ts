@@ -33,12 +33,11 @@ export class AppointmentService {
     return this.http.post<AppointmentResultDto>(`${this.apiUrl}/appointments`, dto);
   }
 
-  findAppointment(code: string, email: string): Observable<AppointmentResultDto> {
-    const params = new HttpParams().set('code', code).set('email', email);
-    return this.http.get<AppointmentResultDto>(`${this.apiUrl}/appointments/lookup`, { params });
+  findAppointment(confirmationCode: string, email: string): Observable<AppointmentResultDto> {
+    return this.http.post<AppointmentResultDto>(`${this.apiUrl}/appointments/lookup`, { confirmationCode, email });
   }
 
-  cancelAppointment(id: string): Observable<AppointmentResultDto> {
-    return this.http.post<AppointmentResultDto>(`${this.apiUrl}/appointments/${id}/cancel`, {});
+  cancelAppointment(confirmationCode: string, email: string): Observable<AppointmentResultDto> {
+    return this.http.post<AppointmentResultDto>(`${this.apiUrl}/appointments/cancel`, { confirmationCode, email });
   }
 }

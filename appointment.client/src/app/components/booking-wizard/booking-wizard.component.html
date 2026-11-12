@@ -8,8 +8,8 @@
     <h2>{{ confirmationResult.status === 'Cancelled' ? 'Appointment cancelled' : 'Booking confirmed' }}</h2>
     <p class="code">{{ confirmationResult.confirmationCode }}</p>
     <dl>
-      <dt>Starts</dt><dd>{{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : 'UTC' }}</dd>
-      <dt>Ends</dt><dd>{{ confirmationResult.endTime | date: 'HH:mm' : 'UTC' }}</dd>
+      <dt>Starts</dt><dd>{{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : '+0200' }}</dd>
+      <dt>Ends</dt><dd>{{ confirmationResult.endTime | date: 'HH:mm' : '+0200' }}</dd>
       <dt>Status</dt><dd><span class="badge">{{ confirmationResult.status }}</span></dd>
     </dl>
     <p class="hint" *ngIf="confirmationResult.status !== 'Cancelled'">
@@ -62,11 +62,11 @@
       </label>
 
       <div *ngIf="availableSlots.length" class="slots">
-        <span>Available times</span>
+        <span>Available times (SA time)</span>
         <button type="button" *ngFor="let slot of availableSlots"
                 [class.selected]="bookingForm.value.selectedSlot === slot"
                 (click)="selectSlot(slot)">
-          {{ slotLabel(slot) }}
+          {{ slot }}
         </button>
       </div>
       <p *ngIf="!availableSlots.length && bookingForm.value.branchId && bookingForm.value.serviceId && bookingForm.value.date">

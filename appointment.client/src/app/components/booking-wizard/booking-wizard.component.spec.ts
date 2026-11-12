@@ -9,7 +9,7 @@ describe('BookingWizardComponent', () => {
   let api: jasmine.SpyObj<AppointmentService>;
 
   beforeEach(async () => {
-    api = jasmine.createSpyObj('AppointmentService', ['getBranches', 'getServicesForBranch', 'getAvailableSlots', 'bookAppointment']);
+    api = jasmine.createSpyObj('AppointmentService', ['getBranches', 'getServicesForBranch', 'getAvailableSlots', 'bookAppointment', 'cancelAppointment']);
     api.getBranches.and.returnValue(of([{ id: 'b1', name: 'Branch', address: 'Addr', phoneNumber: '1' }]));
     api.getServicesForBranch.and.returnValue(of([{ id: 's1', name: 'Svc', description: '', durationMinutes: 30 }]));
     api.getAvailableSlots.and.returnValue(of(['09:00', '09:30']));
@@ -49,7 +49,7 @@ describe('BookingWizardComponent', () => {
       customerName: 'Jane', customerEmail: 'jane@example.com', customerPhone: '0821234567'
     });
     component.onSubmit();
-    expect(api.bookAppointment.calls.mostRecent().args[0].startTime).toBe('2030-01-02T09:30:00Z');
+    expect(api.bookAppointment.calls.mostRecent().args[0].startTime).toBe('2030-01-02T09:30:00+02:00');
     expect(component.confirmationResult?.confirmationCode).toBe('APT-1');
   });
 
@@ -62,5 +62,18 @@ describe('BookingWizardComponent', () => {
     component.onSubmit();
     expect(component.errorMessage).toBe('Slot taken');
     expect(component.loading).toBeFalse();
+  });
+
+  it('cancels with the confirmation code and the email used to book', () => {
+    api.bookAppointment.and.returnValue(of({ id: '1', confirmationCode: 'APT-1', startTime: '', endTime: '', status: 'Confirmed' }));
+    api.cancelAppointment.and.returnValue(of({ id: '1', confirmationCode: 'APT-1', startTime: '', endTime: '', status: 'Cancelled' }));
+    component.bookingForm.patchValue({
+      branchId: 'b1', serviceId: 's1', date: '2030-01-02', selectedSlot: '09:30',
+      customerName: 'Jane', customerEmail: 'jane@example.com', customerPhone: '0821234567'
+    });
+    component.onSubmit();
+    component.confirmCancel();
+    expect(api.cancelAppointment).toHaveBeenCalledWith('APT-1', 'jane@example.com');
+    expect(component.confirmationResult?.status).toBe('Cancelled');
   });
 });

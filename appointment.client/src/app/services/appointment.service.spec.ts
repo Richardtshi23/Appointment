@@ -36,11 +36,22 @@ describe('AppointmentService', () => {
   it('posts a booking', () => {
     const dto: CreateAppointmentDto = {
       branchId: 'b1', serviceId: 's1', customerName: 'Jane', customerEmail: 'j@x.com',
-      customerPhone: '123', startTime: '2030-01-02T10:00:00Z'
+      customerPhone: '0821234567', startTime: '2030-01-02T10:00:00Z'
     };
     service.bookAppointment(dto).subscribe();
     const req = http.expectOne('/api/appointments');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(dto);
+  });
+
+  it('posts the code and email in the body when looking up or cancelling', () => {
+    service.findAppointment('APT-1', 'a@b.com').subscribe();
+    const lookup = http.expectOne('/api/appointments/lookup');
+    expect(lookup.request.method).toBe('POST');
+    expect(lookup.request.body).toEqual({ confirmationCode: 'APT-1', email: 'a@b.com' });
+
+    service.cancelAppointment('APT-1', 'a@b.com').subscribe();
+    const cancel = http.expectOne('/api/appointments/cancel');
+    expect(cancel.request.body).toEqual({ confirmationCode: 'APT-1', email: 'a@b.com' });
   });
 });
