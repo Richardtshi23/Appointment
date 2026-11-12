@@ -55,8 +55,9 @@ public class AppointmentServiceTests : IDisposable
         var svc = _db.CreateService(ctx);
         var booked = await svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(10)));
 
-        var cancelled = await svc.CancelAppointmentAsync(booked.Id);
-        await svc.CancelAppointmentAsync(booked.Id);
+        var email = TestDb.Dto(TestDb.Tomorrow).CustomerEmail;
+        var cancelled = await svc.CancelAppointmentAsync(booked.ConfirmationCode, email);
+        await svc.CancelAppointmentAsync(booked.ConfirmationCode, email);
 
         Assert.Equal("Cancelled", cancelled.Status);
         Assert.Single(_db.Notifier.Cancelled);
@@ -88,10 +89,38 @@ public class AppointmentServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancelling_unknown_appointment_is_not_found()
+    public async Task Cancelling_with_wrong_email_is_not_found_and_keeps_the_booking()
     {
         using var ctx = _db.CreateContext();
-        await Assert.ThrowsAsync<NotFoundException>(() => _db.CreateService(ctx).CancelAppointmentAsync(Guid.NewGuid()));
+        var svc = _db.CreateService(ctx);
+        var booked = await svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(10)));
+
+        await Assert.ThrowsAsync<NotFoundException>(() => svc.CancelAppointmentAsync(booked.ConfirmationCode, "someone.else@example.com"));
+
+        var found = await svc.FindAppointmentAsync(booked.ConfirmationCode, TestDb.Dto(TestDb.Tomorrow).CustomerEmail);
+        Assert.Equal("Confirmed", found.Status);
+    }
+
+    [Fact]
+    public async Task Parallel_bookings_for_the_same_slot_only_let_one_through()
+    {
+        var attempts = Enumerable.Range(0, 8).Select(async _ =>
+        {
+            using var ctx = _db.CreateContext();
+            try
+            {
+                await _db.CreateService(ctx).BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(10)));
+                return true;
+            }
+            catch (SlotUnavailableException)
+            {
+                return false;
+            }
+        });
+
+        var results = await Task.WhenAll(attempts);
+
+        Assert.Equal(1, results.Count(r => r));
     }
 
     [Fact]
@@ -174,6 +203,24 @@ public class AppointmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Opening_hours_are_applied_in_south_african_time()
+    {
+        using var ctx = _db.CreateContext();
+        var svc = _db.CreateService(ctx, "Africa/Johannesburg");
+
+        var slots = await svc.GetAvailableSlotsAsync(TestDb.BranchId, TestDb.HalfHourServiceId, TestDb.Tomorrow);
+        Assert.Equal(new TimeSpan(9, 0, 0), slots.First());
+
+        var result = await svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(7)));
+        Assert.Equal(TestDb.Tomorrow.AddHours(7), result.StartTime);
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(5))));
+
+        var after = await svc.GetAvailableSlotsAsync(TestDb.BranchId, TestDb.HalfHourServiceId, TestDb.Tomorrow);
+        Assert.DoesNotContain(new TimeSpan(9, 0, 0), after);
+    }
+
+    [Fact]
     public async Task Slots_in_the_past_are_not_offered()
     {
         using var ctx = _db.CreateContext();
@@ -183,7 +230,7 @@ public class AppointmentServiceTests : IDisposable
 
         var later = new Appointment.Server.Services.AppointmentService(
             ctx, _db.Notifier,
-            Microsoft.Extensions.Options.Options.Create(new Appointment.Server.Models.BookingOptions()),
+            Microsoft.Extensions.Options.Options.Create(new Appointment.Server.Models.BookingOptions { TimeZoneId = "UTC" }),
             new FixedTimeProvider(new DateTimeOffset(2030, 1, 1, 12, 15, 0, TimeSpan.Zero)),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Appointment.Server.Services.AppointmentService>.Instance);
         var laterSlots = await later.GetAvailableSlotsAsync(TestDb.BranchId, TestDb.HalfHourServiceId, TestDb.Now.UtcDateTime.Date);

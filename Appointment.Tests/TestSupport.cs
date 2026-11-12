@@ -72,8 +72,8 @@ public sealed class TestDb : IDisposable
     public AppDBContext CreateContext() =>
         new(new DbContextOptionsBuilder<AppDBContext>().UseSqlite(_connection).Options);
 
-    public AppointmentService CreateService(AppDBContext ctx) =>
-        new(ctx, Notifier, Options.Create(new BookingOptions()), new FixedTimeProvider(Now),
+    public AppointmentService CreateService(AppDBContext ctx, string timeZoneId = "UTC") =>
+        new(ctx, Notifier, Options.Create(new BookingOptions { TimeZoneId = timeZoneId }), new FixedTimeProvider(Now),
             NullLogger<AppointmentService>.Instance);
 
     public static CreateAppointmentDto Dto(DateTime start, Guid? serviceId = null, Guid? branchId = null) => new()

@@ -4,6 +4,8 @@ using Appointment.Server.Middleware;
 using Appointment.Server.Models;
 using Appointment.Server.Notifications;
 using Appointment.Server.Services;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -46,7 +48,27 @@ builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IBranchService, BranchCatalogService>();
 builder.Services.AddSingleton<INotificationService, SimulatedNotificationService>();
 
+// Behind nginx the real client address arrives in X-Forwarded-For; the proxy is on a private Docker network
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDBContext>();
+
+// Per-client limits so the lookup/cancel endpoints can't be brute-forced
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("lookup", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+    o.AddPolicy("booking", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+});
 
 var app = builder.Build();
 
@@ -67,6 +89,9 @@ if (!app.Configuration.GetValue<bool>("DisableHttpsRedirection"))
 {
     app.UseHttpsRedirection();
 }
+
+app.UseForwardedHeaders();
+app.UseRateLimiter();
 
 app.MapControllers();
 app.MapHealthChecks("/health");

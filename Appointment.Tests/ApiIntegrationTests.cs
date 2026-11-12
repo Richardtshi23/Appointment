@@ -20,6 +20,7 @@ public class ApiIntegrationTests : IClassFixture<ApiIntegrationTests.Factory>
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
             builder.UseSetting("DisableHttpsRedirection", "true");
+            builder.UseSetting("Booking:TimeZoneId", "UTC");
             builder.ConfigureServices(services =>
             {
                 var existing = services.Where(d =>
@@ -109,7 +110,10 @@ public class ApiIntegrationTests : IClassFixture<ApiIntegrationTests.Factory>
         var conflict = await _client.PostAsJsonAsync("/api/appointments", body);
         Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
 
-        var cancel = await _client.PostAsync($"/api/appointments/{result.Id}/cancel", null);
+        var wrongEmail = await _client.PostAsJsonAsync("/api/appointments/cancel", new AppointmentLookupDto { ConfirmationCode = result.ConfirmationCode, Email = "other@example.com" });
+        Assert.Equal(HttpStatusCode.NotFound, wrongEmail.StatusCode);
+
+        var cancel = await _client.PostAsJsonAsync("/api/appointments/cancel", new AppointmentLookupDto { ConfirmationCode = result.ConfirmationCode, Email = body.CustomerEmail });
         Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
         var slotsFreed = await _client.GetFromJsonAsync<List<string>>(
             $"/api/appointments/available-slots?branchId={Branch}&serviceId={Service}&date={dateStr}");
