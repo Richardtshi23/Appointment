@@ -1,7 +1,7 @@
-using Appointment.Server.Exceptions;
 using Appointment.Server.Interfaces;
 using Appointment.Server.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Appointment.Server.Controllers
 {
@@ -15,6 +15,7 @@ namespace Appointment.Server.Controllers
         public AppointmentsController(IAppointmentService appointments) => _appointments = appointments;
 
         [HttpPost]
+        [EnableRateLimiting("booking")]
         [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -25,25 +26,24 @@ namespace Appointment.Server.Controllers
             return Created($"/api/appointments/{result.Id}", result);
         }
 
-        [HttpPost("{id:guid}/cancel")]
+        [HttpPost("cancel")]
+        [EnableRateLimiting("lookup")]
         [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> CancelAppointment(Guid id, CancellationToken ct)
+        public async Task<IActionResult> CancelAppointment([FromBody] AppointmentLookupDto dto, CancellationToken ct)
         {
-            var result = await _appointments.CancelAppointmentAsync(id, ct);
+            var result = await _appointments.CancelAppointmentAsync(dto.ConfirmationCode, dto.Email, ct);
             return Ok(result);
         }
 
-        [HttpGet("lookup")]
+        [HttpPost("lookup")]
+        [EnableRateLimiting("lookup")]
         [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> FindAppointment([FromQuery] string code, [FromQuery] string email, CancellationToken ct)
+        public async Task<IActionResult> FindAppointment([FromBody] AppointmentLookupDto dto, CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(email))
-                throw new BusinessRuleException("Confirmation code and email are required.");
-
-            return Ok(await _appointments.FindAppointmentAsync(code, email, ct));
+            return Ok(await _appointments.FindAppointmentAsync(dto.ConfirmationCode, dto.Email, ct));
         }
 
         /// <summary>Returns the start times (HH:mm) still free on the given date.</summary>

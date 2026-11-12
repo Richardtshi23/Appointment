@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Appointment.Server.Exceptions;
 using Appointment.Server.Interfaces;
 using Appointment.Server.Models;
@@ -9,12 +10,15 @@ namespace Appointment.Server.Services
 {
     public class AppointmentService : IAppointmentService
     {
-        private static readonly SemaphoreSlim BookingLock = new(1, 1);
+        private const string LookupFailedMessage = "No appointment found for that confirmation code and email.";
+
+        private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> BranchLocks = new();
 
         private readonly AppDBContext _context;
         private readonly INotificationService _notifications;
         private readonly BookingOptions _options;
         private readonly TimeProvider _clock;
+        private readonly TimeZoneInfo _zone;
         private readonly ILogger<AppointmentService> _logger;
 
         public AppointmentService(
@@ -28,6 +32,7 @@ namespace Appointment.Server.Services
             _notifications = notifications;
             _options = options.Value;
             _clock = clock;
+            _zone = TimeZoneInfo.FindSystemTimeZoneById(_options.TimeZoneId);
             _logger = logger;
         }
 
@@ -51,9 +56,15 @@ namespace Appointment.Server.Services
             var end = start.AddMinutes(service.DurationMinutes);
             ValidateTime(start, end);
 
-            await BookingLock.WaitAsync(ct);
+            var branchLock = BranchLocks.GetOrAdd(dto.BranchId, _ => new SemaphoreSlim(1, 1));
+            await branchLock.WaitAsync(ct);
+
+            Models.Appointment appointment;
             try
             {
+                await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+                await LockBranchInDatabaseAsync(dto.BranchId, ct);
+
                 var hasConflict = await _context.Appointments.AnyAsync(a =>
                     a.BranchId == dto.BranchId
                     && a.Status != AppointmentStatus.Cancelled
@@ -66,7 +77,7 @@ namespace Appointment.Server.Services
                     throw new SlotUnavailableException("This time slot is already booked. Please choose another time.");
                 }
 
-                var appointment = new Models.Appointment
+                appointment = new Models.Appointment
                 {
                     BranchId = dto.BranchId,
                     ServiceId = dto.ServiceId,
@@ -76,30 +87,33 @@ namespace Appointment.Server.Services
                     StartTime = start,
                     EndTime = end,
                     Status = AppointmentStatus.Confirmed,
-                    ConfirmationCode = GenerateConfirmationCode()
+                    ConfirmationCode = await GenerateUniqueCodeAsync(ct)
                 };
 
                 _context.Appointments.Add(appointment);
                 await _context.SaveChangesAsync(ct);
-
-                _logger.LogInformation("Appointment {AppointmentId} booked with code {Code}", appointment.Id, appointment.ConfirmationCode);
-
-                await NotifyAsync(appointment, service.Name, ct);
-
-                return ToResult(appointment);
+                await transaction.CommitAsync(ct);
             }
             finally
             {
-                BookingLock.Release();
+                branchLock.Release();
             }
+
+            _logger.LogInformation("Appointment {AppointmentId} booked with code {Code}", appointment.Id, appointment.ConfirmationCode);
+            await NotifyAsync(appointment, service.Name, ct);
+
+            return ToResult(appointment);
         }
 
-        public async Task<AppointmentResultDto> CancelAppointmentAsync(Guid id, CancellationToken ct = default)
+        public async Task<AppointmentResultDto> CancelAppointmentAsync(string confirmationCode, string email, CancellationToken ct = default)
         {
+            var code = confirmationCode.Trim().ToUpperInvariant();
+            var customerEmail = email.Trim().ToLowerInvariant();
+
             var appointment = await _context.Appointments
                 .Include(a => a.Service)
-                .FirstOrDefaultAsync(a => a.Id == id, ct)
-                ?? throw new NotFoundException("Appointment not found.");
+                .FirstOrDefaultAsync(a => a.ConfirmationCode == code && a.CustomerEmail.ToLower() == customerEmail, ct)
+                ?? throw new NotFoundException(LookupFailedMessage);
 
             if (appointment.Status != AppointmentStatus.Cancelled)
             {
@@ -107,6 +121,7 @@ namespace Appointment.Server.Services
                     throw new BusinessRuleException("Appointments that have already started cannot be cancelled.");
 
                 appointment.Status = AppointmentStatus.Cancelled;
+                appointment.UpdatedAt = _clock.GetUtcNow().UtcDateTime;
                 await _context.SaveChangesAsync(ct);
                 _logger.LogInformation("Appointment {AppointmentId} cancelled", appointment.Id);
 
@@ -122,7 +137,6 @@ namespace Appointment.Server.Services
 
             return ToResult(appointment);
         }
-
         public async Task<AppointmentResultDto> FindAppointmentAsync(string confirmationCode, string email, CancellationToken ct = default)
         {
             var code = confirmationCode.Trim().ToUpperInvariant();
@@ -134,7 +148,7 @@ namespace Appointment.Server.Services
             if (appointment == null)
             {
                 _logger.LogWarning("Appointment lookup failed for code {Code}", code);
-                throw new NotFoundException("No appointment found for that confirmation code and email.");
+                throw new NotFoundException(LookupFailedMessage);
             }
 
             return ToResult(appointment);
@@ -150,8 +164,9 @@ namespace Appointment.Server.Services
             if (!branchOffersService)
                 throw new BusinessRuleException("The selected branch does not offer this service.");
 
-            var startOfDay = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
-            var endOfDay = startOfDay.AddDays(1);
+            var localDay = DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified);
+            var startOfDay = TimeZoneInfo.ConvertTimeToUtc(localDay, _zone);
+            var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDay.AddDays(1), _zone);
             var now = _clock.GetUtcNow().UtcDateTime;
 
             var booked = await _context.Appointments.AsNoTracking()
@@ -168,7 +183,7 @@ namespace Appointment.Server.Services
 
             for (var t = _options.OpeningTime; t + duration <= _options.ClosingTime; t += interval)
             {
-                var slotStart = startOfDay + t;
+                var slotStart = TimeZoneInfo.ConvertTimeToUtc(localDay + t, _zone);
                 var slotEnd = slotStart + duration;
 
                 if (slotStart <= now) continue;
@@ -185,15 +200,18 @@ namespace Appointment.Server.Services
             if (start <= _clock.GetUtcNow().UtcDateTime)
                 throw new BusinessRuleException("Appointments must be booked in the future.");
 
-            if (end.Date != start.Date
-                || start.TimeOfDay < _options.OpeningTime
-                || end.TimeOfDay > _options.ClosingTime)
+            var localStart = TimeZoneInfo.ConvertTimeFromUtc(start, _zone);
+            var localEnd = TimeZoneInfo.ConvertTimeFromUtc(end, _zone);
+
+            if (localEnd.Date != localStart.Date
+                || localStart.TimeOfDay < _options.OpeningTime
+                || localEnd.TimeOfDay > _options.ClosingTime)
             {
                 throw new BusinessRuleException(
                     $"Appointments must be booked between {_options.OpeningTime:hh\\:mm} and {_options.ClosingTime:hh\\:mm}.");
             }
 
-            var offset = start.TimeOfDay - _options.OpeningTime;
+            var offset = localStart.TimeOfDay - _options.OpeningTime;
             if (offset.TotalMinutes % _options.SlotIntervalMinutes != 0)
                 throw new BusinessRuleException($"Appointments must start on a {_options.SlotIntervalMinutes}-minute boundary.");
         }
@@ -225,7 +243,26 @@ namespace Appointment.Server.Services
             _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
         };
 
-        private static string GenerateConfirmationCode() =>
-            "APT-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        private async Task<string> GenerateUniqueCodeAsync(CancellationToken ct)
+        {
+            // The unique index is the real guard; this just avoids a 500 on a rare collision
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                var code = "APT-" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+                if (!await _context.Appointments.AnyAsync(a => a.ConfirmationCode == code, ct))
+                    return code;
+            }
+
+            throw new InvalidOperationException("Could not generate a unique confirmation code.");
+        }
+
+        private async Task LockBranchInDatabaseAsync(Guid branchId, CancellationToken ct)
+        {
+            if (!_context.Database.IsSqlServer()) return;
+
+            var resource = $"booking:{branchId}";
+            await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"EXEC sp_getapplock @Resource = {resource}, @LockMode = N'Exclusive', @LockOwner = N'Transaction', @LockTimeout = 10000", ct);
+        }
     }
 }
