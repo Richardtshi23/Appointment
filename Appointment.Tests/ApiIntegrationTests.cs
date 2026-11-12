@@ -93,7 +93,7 @@ public class ApiIntegrationTests : IClassFixture<ApiIntegrationTests.Factory>
         var body = new CreateAppointmentDto
         {
             BranchId = Branch, ServiceId = Service, CustomerName = "Jane Doe",
-            CustomerEmail = "jane@example.com", CustomerPhone = "+27215550100",
+            CustomerEmail = "jane@example.com", CustomerPhone = "0215550100",
             StartTime = DateTime.SpecifyKind(date.AddHours(10), DateTimeKind.Utc)
         };
 

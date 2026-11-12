@@ -30,8 +30,8 @@ export class BookingWizardComponent implements OnInit {
       date: ['', Validators.required],
       selectedSlot: ['', Validators.required],
       customerName: ['', [Validators.required, Validators.maxLength(100)]],
-      customerEmail: ['', [Validators.required, Validators.email]],
-      customerPhone: ['', Validators.required]
+      customerEmail: ['',       [Validators.required, Validators.email, Validators.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/)]],
+            customerPhone: ['', [Validators.required, Validators.pattern(/^0[1-8][0-9]{8}$/)]]
     });
   }
 

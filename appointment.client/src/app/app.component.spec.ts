@@ -1,19 +1,19 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { RouterTestingModule } from '@angular/router/testing';
 import { AppComponent } from './app.component';
-import { BookingWizardComponent } from './components/booking-wizard/booking-wizard.component';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       declarations: [AppComponent],
-      imports: [HttpClientTestingModule, BookingWizardComponent]
+      imports: [RouterTestingModule]
     }).compileComponents();
   });
 
-  it('should render the booking wizard', () => {
+  it('should render the navigation and router outlet', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-booking-wizard')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.top-nav a').length).toBe(2);
+    expect(fixture.nativeElement.querySelector('router-outlet')).toBeTruthy();
   });
 });

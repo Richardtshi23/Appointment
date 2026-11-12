@@ -1,0 +1,58 @@
+<div class="wizard">
+  <h1>Manage my booking</h1>
+  <p class="subtitle">Enter your confirmation code and the email you booked with.</p>
+
+  <form class="card" [formGroup]="lookupForm" (ngSubmit)="find()" *ngIf="!appointment; else detailsTpl">
+    <label>Confirmation code
+      <input type="text" formControlName="code" placeholder="APT-XXXXXXXX" />
+    </label>
+    <p class="error" *ngIf="lookupForm.get('code')?.touched && lookupForm.get('code')?.invalid">
+      Confirmation code is required.
+    </p>
+
+    <label>Email
+      <input type="email" formControlName="email" />
+    </label>
+    <p class="error" *ngIf="lookupForm.get('email')?.touched && lookupForm.get('email')?.invalid">
+      {{ lookupForm.get('email')?.errors?.['required'] ? 'Email is required.' : 'Enter a valid email address, e.g. name@example.com.' }}
+    </p>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <button type="submit" class="btn" [disabled]="loading">
+      {{ loading ? 'Searching...' : 'Find my appointment' }}
+    </button>
+  </form>
+
+  <ng-template #detailsTpl>
+    <div class="card confirmation" [class.cancelled]="appointment!.status === 'Cancelled'">
+      <h2>{{ appointment!.status === 'Cancelled' ? 'Appointment cancelled' : 'Your appointment' }}</h2>
+      <p class="code">{{ appointment!.confirmationCode }}</p>
+      <dl>
+        <dt>Starts</dt><dd>{{ appointment!.startTime | date: 'EEEE, d MMMM y, HH:mm' : 'UTC' }}</dd>
+        <dt>Ends</dt><dd>{{ appointment!.endTime | date: 'HH:mm' : 'UTC' }}</dd>
+        <dt>Status</dt><dd><span class="badge">{{ appointment!.status }}</span></dd>
+      </dl>
+
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <div class="cancel-confirm" *ngIf="confirmingCancel">
+        <p>Are you sure you want to cancel this appointment?</p>
+        <div class="actions">
+          <button type="button" class="btn danger" (click)="confirmCancel()" [disabled]="cancelling">
+            {{ cancelling ? 'Cancelling...' : 'Yes, cancel it' }}
+          </button>
+          <button type="button" class="btn secondary" (click)="dismissCancel()" [disabled]="cancelling">Keep it</button>
+        </div>
+      </div>
+
+      <div class="actions" *ngIf="!confirmingCancel">
+        <button type="button" class="btn danger-outline"
+                *ngIf="appointment!.status !== 'Cancelled'" (click)="askCancel()">
+          Cancel appointment
+        </button>
+        <button type="button" class="btn secondary" (click)="back()">Look up another</button>
+      </div>
+    </div>
+  </ng-template>
+</div>

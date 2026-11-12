@@ -86,14 +86,7 @@ namespace Appointment.Server.Services
 
                 await NotifyAsync(appointment, service.Name, ct);
 
-                return new AppointmentResultDto
-                {
-                    Id = appointment.Id,
-                    ConfirmationCode = appointment.ConfirmationCode,
-                    StartTime = appointment.StartTime,
-                    EndTime = appointment.EndTime,
-                    Status = appointment.Status.ToString()
-                };
+                return ToResult(appointment);
             }
             finally
             {
@@ -127,14 +120,24 @@ namespace Appointment.Server.Services
                 }
             }
 
-            return new AppointmentResultDto
+            return ToResult(appointment);
+        }
+
+        public async Task<AppointmentResultDto> FindAppointmentAsync(string confirmationCode, string email, CancellationToken ct = default)
+        {
+            var code = confirmationCode.Trim().ToUpperInvariant();
+            var customerEmail = email.Trim().ToLowerInvariant();
+
+            var appointment = await _context.Appointments.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.ConfirmationCode == code && a.CustomerEmail.ToLower() == customerEmail, ct);
+
+            if (appointment == null)
             {
-                Id = appointment.Id,
-                ConfirmationCode = appointment.ConfirmationCode,
-                StartTime = appointment.StartTime,
-                EndTime = appointment.EndTime,
-                Status = appointment.Status.ToString()
-            };
+                _logger.LogWarning("Appointment lookup failed for code {Code}", code);
+                throw new NotFoundException("No appointment found for that confirmation code and email.");
+            }
+
+            return ToResult(appointment);
         }
 
         public async Task<IReadOnlyList<TimeSpan>> GetAvailableSlotsAsync(Guid branchId, Guid serviceId, DateTime date, CancellationToken ct = default)
@@ -206,6 +209,15 @@ namespace Appointment.Server.Services
                 _logger.LogError(ex, "Failed to send confirmation for appointment {AppointmentId}", appointment.Id);
             }
         }
+
+        private static AppointmentResultDto ToResult(Models.Appointment a) => new()
+        {
+            Id = a.Id,
+            ConfirmationCode = a.ConfirmationCode,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Status = a.Status.ToString()
+        };
 
         private static DateTime NormaliseToUtc(DateTime value) => value.Kind switch
         {

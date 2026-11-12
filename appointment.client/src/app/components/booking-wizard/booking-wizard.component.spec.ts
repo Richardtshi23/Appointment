@@ -46,7 +46,7 @@ describe('BookingWizardComponent', () => {
     api.bookAppointment.and.returnValue(of({ id: '1', confirmationCode: 'APT-1', startTime: '', endTime: '', status: 'Confirmed' }));
     component.bookingForm.patchValue({
       branchId: 'b1', serviceId: 's1', date: '2030-01-02', selectedSlot: '09:30',
-      customerName: 'Jane', customerEmail: 'jane@example.com', customerPhone: '123'
+      customerName: 'Jane', customerEmail: 'jane@example.com', customerPhone: '0821234567'
     });
     component.onSubmit();
     expect(api.bookAppointment.calls.mostRecent().args[0].startTime).toBe('2030-01-02T09:30:00Z');
@@ -57,7 +57,7 @@ describe('BookingWizardComponent', () => {
     api.bookAppointment.and.returnValue(throwError(() => ({ error: { message: 'Slot taken' } })));
     component.bookingForm.patchValue({
       branchId: 'b1', serviceId: 's1', date: '2030-01-02', selectedSlot: '09:30',
-      customerName: 'Jane', customerEmail: 'jane@example.com', customerPhone: '123'
+      customerName: 'Jane', customerEmail: 'jane@example.com', customerPhone: '0821234567'
     });
     component.onSubmit();
     expect(component.errorMessage).toBe('Slot taken');

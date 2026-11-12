@@ -51,10 +51,11 @@
 
       <label>Service
         <select formControlName="serviceId">
-          <option value="">Select a service</option>
+          <option value="">{{ bookingForm.value.branchId ? 'Select a service' : 'Select a branch first' }}</option>
           <option *ngFor="let s of services" [value]="s.id">{{ s.name }} ({{ s.durationMinutes }} min)</option>
         </select>
       </label>
+      <p class="error" *ngIf="!bookingForm.value.branchId && bookingForm.get('serviceId')?.touched">Select a branch first.</p>
 
       <label>Date
         <input type="date" formControlName="date" [min]="today" />
@@ -78,9 +79,19 @@
       <label>Email
         <input type="email" formControlName="customerEmail" />
       </label>
+      <p class="error" *ngIf="bookingForm.get('customerEmail') as c">
+        <ng-container *ngIf="c.touched && c.invalid">
+          {{ c.errors?.['required'] ? 'Email is required.' : 'Enter a valid email address, e.g. name@example.com.' }}
+        </ng-container>
+      </p>
       <label>Phone
-        <input type="tel" formControlName="customerPhone" />
+        <input type="tel" formControlName="customerPhone" maxlength="10" inputmode="numeric" placeholder="0821234567" />
       </label>
+      <p class="error" *ngIf="bookingForm.get('customerPhone') as c">
+        <ng-container *ngIf="c.touched && c.invalid">
+          {{ c.errors?.['required'] ? 'Phone number is required.' : 'Enter a valid South African phone number: exactly 10 digits, e.g. 0821234567.' }}
+        </ng-container>
+      </p>
 
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 

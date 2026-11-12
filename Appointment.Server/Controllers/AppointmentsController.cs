@@ -1,3 +1,4 @@
+using Appointment.Server.Exceptions;
 using Appointment.Server.Interfaces;
 using Appointment.Server.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,6 @@ namespace Appointment.Server.Controllers
 
         public AppointmentsController(IAppointmentService appointments) => _appointments = appointments;
 
-        /// <summary>Books an appointment and returns a (simulated) confirmation.</summary>
         [HttpPost]
         [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -25,7 +25,6 @@ namespace Appointment.Server.Controllers
             return Created($"/api/appointments/{result.Id}", result);
         }
 
-        /// <summary>Cancels a confirmed appointment, freeing its slot. Cancelling twice is a no-op.</summary>
         [HttpPost("{id:guid}/cancel")]
         [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -34,6 +33,17 @@ namespace Appointment.Server.Controllers
         {
             var result = await _appointments.CancelAppointmentAsync(id, ct);
             return Ok(result);
+        }
+
+        [HttpGet("lookup")]
+        [ProducesResponseType(typeof(AppointmentResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> FindAppointment([FromQuery] string code, [FromQuery] string email, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(email))
+                throw new BusinessRuleException("Confirmation code and email are required.");
+
+            return Ok(await _appointments.FindAppointmentAsync(code, email, ct));
         }
 
         /// <summary>Returns the start times (HH:mm) still free on the given date.</summary>

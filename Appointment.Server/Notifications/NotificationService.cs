@@ -5,7 +5,7 @@ namespace Appointment.Server.Notifications
     public interface INotificationService
     {
         Task SendBookingConfirmationAsync(Models.Appointment appointment, string serviceName, CancellationToken ct = default);
-                Task SendCancellationAsync(Models.Appointment appointment, string serviceName, CancellationToken ct = default);
+        Task SendCancellationAsync(Models.Appointment appointment, string serviceName, CancellationToken ct = default);
     }
 
     public class SimulatedNotificationService : INotificationService
@@ -17,7 +17,7 @@ namespace Appointment.Server.Notifications
         public Task SendBookingConfirmationAsync(Models.Appointment appointment, string serviceName, CancellationToken ct = default)
         {
             _logger.LogInformation(
-                "[SIMULATED EMAIL] To: {Email} | Subject: Appointment {Code} confirmed | {Service} on {Start:u}",
+                "[SIMULATED EMAIL] To: {Email} | Subject: Appointment {Code} confirmed | {Service} on {Start:u} | Manage or cancel: /manage?code={Code}",
                 appointment.CustomerEmail, appointment.ConfirmationCode, serviceName, appointment.StartTime);
 
             _logger.LogInformation(

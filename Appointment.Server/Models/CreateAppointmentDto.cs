@@ -19,7 +19,7 @@ namespace Appointment.Server.Models
         public string CustomerEmail { get; set; } = string.Empty;
 
         [Required]
-        [Phone(ErrorMessage = "Invalid phone number format.")]
+        [RegularExpression(@"^0[1-8][0-9]{8}$", ErrorMessage = "Phone number must be a valid South African number with exactly 10 digits, e.g. 0821234567.")]
         public string CustomerPhone { get; set; } = string.Empty;
 
         [Required]

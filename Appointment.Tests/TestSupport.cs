@@ -82,7 +82,7 @@ public sealed class TestDb : IDisposable
         ServiceId = serviceId ?? HalfHourServiceId,
         CustomerName = "Jane Doe",
         CustomerEmail = "jane@example.com",
-        CustomerPhone = "+27 21 555 0100",
+        CustomerPhone = "0215550100",
         StartTime = start
     };
 

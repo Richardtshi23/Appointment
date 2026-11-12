@@ -65,6 +65,29 @@ public class AppointmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Lookup_finds_appointment_by_code_and_email_ignoring_case()
+    {
+        using var ctx = _db.CreateContext();
+        var svc = _db.CreateService(ctx);
+        var booked = await svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(10)));
+
+        var found = await svc.FindAppointmentAsync(booked.ConfirmationCode.ToLowerInvariant(), " JANE@example.com ");
+
+        Assert.Equal(booked.Id, found.Id);
+    }
+
+    [Fact]
+    public async Task Lookup_with_wrong_email_is_not_found()
+    {
+        using var ctx = _db.CreateContext();
+        var svc = _db.CreateService(ctx);
+        var booked = await svc.BookAppointmentAsync(TestDb.Dto(TestDb.Tomorrow.AddHours(10)));
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            svc.FindAppointmentAsync(booked.ConfirmationCode, "someone.else@example.com"));
+    }
+
+    [Fact]
     public async Task Cancelling_unknown_appointment_is_not_found()
     {
         using var ctx = _db.CreateContext();
