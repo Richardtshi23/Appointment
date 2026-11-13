@@ -22,13 +22,11 @@ services:
       APP_DB_PASSWORD: "${APP_DB_PASSWORD:-Dev_App_Passw0rd!}"
     entrypoint: ["/bin/bash", "-c"]
     command:
-      - >
-        /opt/mssql-tools18/bin/sqlcmd -C -S db -U sa -P "$$SA_PASSWORD" -b -Q
-        "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = 'appuser')
-        BEGIN
-          CREATE LOGIN appuser WITH PASSWORD = '$$APP_DB_PASSWORD', CHECK_POLICY = OFF;
-          ALTER SERVER ROLE dbcreator ADD MEMBER appuser;
-        END"
+      - |
+        set -e
+        sa() { /opt/mssql-tools18/bin/sqlcmd -C -S db -U sa -P "$$SA_PASSWORD" -b "$$@"; }
+        sa -Q "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = 'appuser') CREATE LOGIN appuser WITH PASSWORD = '$$APP_DB_PASSWORD', CHECK_POLICY = OFF; IF DB_ID('AppointmentDB') IS NULL CREATE DATABASE AppointmentDB;"
+        sa -d AppointmentDB -Q "IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'appuser') CREATE USER appuser FOR LOGIN appuser; ALTER ROLE db_owner ADD MEMBER appuser;"
     restart: "no"
 
   api:
@@ -36,8 +34,9 @@ services:
       context: .
       dockerfile: Appointment.Server/Dockerfile
     image: appointment-api:latest
-    ports:
-      - "8080:8080"
+    # not published on the host: everything goes through the web container so rate limiting sees real client IPs
+    expose:
+      - "8080"
     environment:
       ConnectionStrings__DefaultConnection: "Server=db;Database=AppointmentDB;User Id=appuser;Password=${APP_DB_PASSWORD:-Dev_App_Passw0rd!};TrustServerCertificate=True"
     depends_on:

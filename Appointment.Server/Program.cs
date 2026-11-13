@@ -48,12 +48,18 @@ builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IBranchService, BranchCatalogService>();
 builder.Services.AddSingleton<INotificationService, SimulatedNotificationService>();
 
-// Behind nginx the real client address arrives in X-Forwarded-For; the proxy is on a private Docker network
+// Only trust X-Forwarded-For from the private networks the nginx container lives on, so a client
+// hitting the API directly can't fake its address and dodge the rate limit
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     o.KnownNetworks.Clear();
     o.KnownProxies.Clear();
+    foreach (var network in new[] { "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16" })
+    {
+        var parts = network.Split('/');
+        o.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(System.Net.IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+    }
 });
 
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDBContext>();
@@ -62,6 +68,20 @@ builder.Services.AddHealthChecks().AddDbContextCheck<AppDBContext>();
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.OnRejected = async (ctx, ct) =>
+    {
+        ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await ctx.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too many requests",
+            Extensions =
+            {
+                ["message"] = "Too many requests. Please wait a minute and try again.",
+                ["traceId"] = ctx.HttpContext.TraceIdentifier
+            }
+        }, (System.Text.Json.JsonSerializerOptions?)null, "application/problem+json", ct);
+    };
     o.AddPolicy("lookup", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));

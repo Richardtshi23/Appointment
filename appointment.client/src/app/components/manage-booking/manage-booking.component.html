@@ -29,8 +29,8 @@
       <h2>{{ appointment!.status === 'Cancelled' ? 'Appointment cancelled' : 'Your appointment' }}</h2>
       <p class="code">{{ appointment!.confirmationCode }}</p>
       <dl>
-        <dt>Starts</dt><dd>{{ appointment!.startTime | date: 'EEEE, d MMMM y, HH:mm' : '+0200' }}</dd>
-        <dt>Ends</dt><dd>{{ appointment!.endTime | date: 'HH:mm' : '+0200' }}</dd>
+        <dt>Starts</dt><dd>{{ appointment!.startTime | date: 'EEEE, d MMMM y, HH:mm' : offset }}</dd>
+        <dt>Ends</dt><dd>{{ appointment!.endTime | date: 'HH:mm' : offset }}</dd>
         <dt>Status</dt><dd><span class="badge">{{ appointment!.status }}</span></dd>
       </dl>
 

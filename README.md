@@ -13,11 +13,11 @@ docker compose up --build
 ```
 
 - App: http://localhost:4200 (nginx serves Angular and forwards `/api` to the API)
-- API: http://localhost:8080
-- Swagger: http://localhost:8080/swagger (off by default, set `Swagger__Enabled=true` on the api service to use it)
-- Health check: http://localhost:8080/health
+- The API itself isn't published on the host. It is only reachable through nginx, so the rate limiter sees the real client address.
+- Swagger is off by default. Set `Swagger__Enabled=true` on the api service and publish its port if you want to use it.
+- Both containers have healthchecks (`docker compose ps` shows them). The API health endpoint is `/health` inside the container.
 
-SQL Server takes around 20 seconds to be ready, so the API may need a moment on the first start. Data is kept in the `sql-data` volume. The API connects with a limited `appuser` login, not `sa`. The passwords default to development values, so set `SA_PASSWORD` and `APP_DB_PASSWORD` before running compose anywhere real. If you ran an older version of this project, run `docker compose down -v` first, because the migrations were squashed into one.
+SQL Server takes around 20 seconds to be ready, so the API may need a moment on the first start. Data is kept in the `sql-data` volume. The API connects with an `appuser` login that is only db_owner of `AppointmentDB`, not `sa` and without server-wide rights. The passwords default to development values, so set `SA_PASSWORD` and `APP_DB_PASSWORD` before running compose anywhere real. If you ran an older version of this project, run `docker compose down -v` first, because the database login and migrations changed.
 
 There is also a root `Dockerfile` that builds one image where the API serves the Angular app. `docker build --target test .` runs the back-end tests inside Docker.
 
@@ -77,9 +77,9 @@ Errors come back as `application/problem+json` with a `message` and a `traceId`.
 - **Cancelling**: customers can cancel right after booking, or later from the "Manage my booking" page (`/manage`) by entering their confirmation code and email. The simulated confirmation email contains a `/manage?code=...` link that prefills the code. Cancelling needs both the code and the email, and a wrong code and a wrong email give the same "not found" error. Both are sent in a POST body so the email stays out of URLs and logs. Appointments are never deleted, they are marked `Cancelled` so there is a history. A cancelled appointment doesn't block the slot any more. Appointments that have already started can't be cancelled.
 - **Form validation**: the booking form shows messages for a missing or badly formatted email and phone number, and the service dropdown says "Select a branch first" until a branch is picked.
 - **Errors and logging**: `ExceptionHandlingMiddleware` turns the custom exceptions into HTTP responses, and anything unexpected is logged and returned as a generic 500. Logging uses structured `ILogger` messages, and emails and phone numbers are masked in the simulated notifications.
-- **Time zones**: times are stored in UTC, but opening hours (09:00 to 17:00) are applied in South African time, set by `Booking:TimeZoneId` (default `Africa/Johannesburg`). Slots and confirmations are shown in SA time, and the client sends bookings with a `+02:00` offset.
-- **Concurrency**: bookings for a branch are serialised with an in-process lock plus a SQL Server application lock (`sp_getapplock`) inside a transaction, so it also holds with several API instances. There is a test that fires parallel bookings at one slot. The lock is per branch, so other branches are not blocked.
-- **Seed data** comes from `HasData` in `AppDBContext` and is applied by the single `InitialCreate` migration.
+- **Time zones**: times are stored in UTC, but opening hours (09:00 to 17:00) are applied in South African time, set by `Booking:TimeZoneId` (default `Africa/Johannesburg`). Slots and confirmations are shown in SA time, and the client sends bookings with a `+02:00` offset. That offset is a constant in the front end (`sa-time.ts`), so it has to be changed there too if the zone is changed.
+- **Concurrency**: bookings for a branch are serialised with an in-process lock plus a SQL Server application lock (`sp_getapplock`) inside a transaction. If the lock can't be taken within 10 seconds the booking is refused with a 409 instead of carrying on. That holds with several API instances, but the SQL Server part isn't covered by the automated tests, which run on SQLite. The rate limit counters are kept in memory, so each instance counts separately. There is a test that fires parallel bookings at one slot. The lock is per branch, so other branches are not blocked.
+- **Seed data** comes from `HasData` in `AppDBContext` and has fixed CreatedAt values so it doesn't create noise in later migrations. Migrations are `InitialCreate` and `FixSeedCreatedAt`.
 - **Known limits**: a branch can only hold one appointment at a time (no staff or capacity model), and there is one time zone for the whole app rather than one per branch.
 
 ## Configuration

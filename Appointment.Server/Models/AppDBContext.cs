@@ -1,11 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace Appointment.Server.Models
 {
     public class AppDBContext : DbContext
     {
-        public AppDBContext(DbContextOptions<AppDBContext> options) : base(options) { }
+        // Fixed so the seed rows don't change every time the model is built
+        private static readonly DateTime SeedDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        public AppDBContext(DbContextOptions<AppDBContext> options) : base(options) { }
 
 
         public DbSet<Branch> Branches => Set<Branch>();
@@ -102,21 +104,24 @@ namespace Appointment.Server.Models
                     Id = branch1Id,
                     Name = "Downtown Branch",
                     Address = "123 Main Street",
-                    PhoneNumber = "555-0100"
+                    PhoneNumber = "555-0100",
+                    CreatedAt = SeedDate
                 },
                 new Branch
                 {
                     Id = branch2Id,
                     Name = "Suburban Plaza",
                     Address = "456 Commerce Blvd",
-                    PhoneNumber = "555-0200"
+                    PhoneNumber = "555-0200",
+                    CreatedAt = SeedDate
                 },
                 new Branch
                 {
                     Id = branch3Id,
                     Name = "Westside Health Center",
                     Address = "789 Park Avenue",
-                    PhoneNumber = "555-0300"
+                    PhoneNumber = "555-0300",
+                    CreatedAt = SeedDate
                 }
             );
 
@@ -126,21 +131,24 @@ namespace Appointment.Server.Models
                     Id = service1Id,
                     Name = "General Consultation",
                     Description = "Standard 30-minute appointment slot for routine checkups",
-                    DurationMinutes = 30
+                    DurationMinutes = 30,
+                    CreatedAt = SeedDate
                 },
                 new Service
                 {
                     Id = service2Id,
                     Name = "Specialized Health Assessment",
                     Description = "Comprehensive 60-minute in-depth review",
-                    DurationMinutes = 60
+                    DurationMinutes = 60,
+                    CreatedAt = SeedDate
                 },
                 new Service
                 {
                     Id = service3Id,
                     Name = "Express Check-in & Lab",
                     Description = "Quick 15-minute diagnostic drop-off or quick consult",
-                    DurationMinutes = 15
+                    DurationMinutes = 15,
+                    CreatedAt = SeedDate
                 }
             );
 

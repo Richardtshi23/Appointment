@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { AppointmentService } from '../../services/appointment.service';
+import { SA_OFFSET_PIPE } from '../../sa-time';
 import { AppointmentResultDto } from '../../models/appointment.model';
 
 @Component({
@@ -13,6 +14,7 @@ import { AppointmentResultDto } from '../../models/appointment.model';
   styleUrls: ['../booking-wizard/booking-wizard.component.css']
 })
 export class ManageBookingComponent implements OnInit {
+  readonly offset = SA_OFFSET_PIPE;
   lookupForm: FormGroup;
   appointment: AppointmentResultDto | null = null;
   loading = false;

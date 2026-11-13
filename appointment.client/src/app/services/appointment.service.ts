@@ -7,7 +7,7 @@ import { Branch, ServiceItem, CreateAppointmentDto, AppointmentResultDto } from 
   providedIn: 'root'
 })
 export class AppointmentService {
-  // This is a  relative URL: forwarded to the backend by src/proxy.conf.js during `ng serve` incase anyone needs to know or nnot 
+  // Relative URL: forwarded to the backend by src/proxy.conf.js during `ng serve`
   private apiUrl = '/api';
 
   constructor(private http: HttpClient) {}

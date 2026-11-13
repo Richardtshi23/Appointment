@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, map, merge, of, switchMap, tap } from 'rxjs';
 import { AppointmentService } from '../../services/appointment.service';
+import { SA_OFFSET, SA_OFFSET_PIPE, todayInSouthAfrica } from '../../sa-time';
 import { Branch, ServiceItem, AppointmentResultDto, CreateAppointmentDto } from '../../models/appointment.model';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -26,7 +27,8 @@ export class BookingWizardComponent implements OnInit {
   errorMessage = '';
   confirmingCancel = false;
   cancelling = false;
-  readonly today = new Date().toISOString().substring(0, 10);
+  readonly today = todayInSouthAfrica();
+  readonly offset = SA_OFFSET_PIPE;
 
   private bookedEmail = '';
   private destroyRef = inject(DestroyRef);
@@ -101,7 +103,7 @@ export class BookingWizardComponent implements OnInit {
       customerEmail: v.customerEmail,
       customerPhone: v.customerPhone,
       // slots are South African time (SAST, no daylight saving)
-      startTime: `${v.date}T${v.selectedSlot}:00+02:00`
+      startTime: `${v.date}T${v.selectedSlot}:00${SA_OFFSET}`
     };
 
     this.appointmentService.bookAppointment(dto).subscribe({

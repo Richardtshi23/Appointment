@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
+using System.Data;
 using Appointment.Server.Exceptions;
 using Appointment.Server.Interfaces;
 using Appointment.Server.Models;
 using Appointment.Server.Notifications;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -260,9 +262,18 @@ namespace Appointment.Server.Services
         {
             if (!_context.Database.IsSqlServer()) return;
 
-            var resource = $"booking:{branchId}";
-            await _context.Database.ExecuteSqlInterpolatedAsync(
-                $"EXEC sp_getapplock @Resource = {resource}, @LockMode = N'Exclusive', @LockOwner = N'Transaction', @LockTimeout = 10000", ct);
+            var resource = new SqlParameter("@resource", $"booking:{branchId}");
+            var result = new SqlParameter("@result", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            await _context.Database.ExecuteSqlRawAsync(
+                "EXEC @result = sp_getapplock @Resource = @resource, @LockMode = N'Exclusive', @LockOwner = N'Transaction', @LockTimeout = 10000",
+                new object[] { result, resource }, ct);
+
+            // Negative means the lock timed out, was cancelled or hit a deadlock
+            if ((int)result.Value < 0)
+            {
+                _logger.LogWarning("Could not get booking lock for branch {BranchId}, code {Code}", branchId, result.Value);
+                throw new SlotUnavailableException("The system is busy right now. Please try again.");
+            }
         }
     }
 }

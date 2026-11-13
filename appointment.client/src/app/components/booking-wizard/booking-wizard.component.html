@@ -8,8 +8,8 @@
     <h2>{{ confirmationResult.status === 'Cancelled' ? 'Appointment cancelled' : 'Booking confirmed' }}</h2>
     <p class="code">{{ confirmationResult.confirmationCode }}</p>
     <dl>
-      <dt>Starts</dt><dd>{{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : '+0200' }}</dd>
-      <dt>Ends</dt><dd>{{ confirmationResult.endTime | date: 'HH:mm' : '+0200' }}</dd>
+      <dt>Starts</dt><dd>{{ confirmationResult.startTime | date: 'EEEE, d MMMM y, HH:mm' : offset }}</dd>
+      <dt>Ends</dt><dd>{{ confirmationResult.endTime | date: 'HH:mm' : offset }}</dd>
       <dt>Status</dt><dd><span class="badge">{{ confirmationResult.status }}</span></dd>
     </dl>
     <p class="hint" *ngIf="confirmationResult.status !== 'Cancelled'">
