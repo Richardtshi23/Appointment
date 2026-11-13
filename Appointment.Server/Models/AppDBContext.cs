@@ -32,6 +32,7 @@ namespace Appointment.Server.Models
                 entity.Property(b => b.Name).IsRequired().HasMaxLength(100);
                 entity.Property(b => b.Address).IsRequired().HasMaxLength(250);
                 entity.Property(b => b.PhoneNumber).IsRequired().HasMaxLength(30);
+                entity.Property(b => b.Capacity).HasDefaultValue(1);
             });
 
             modelBuilder.Entity<Service>(entity =>
@@ -105,6 +106,7 @@ namespace Appointment.Server.Models
                     Name = "Downtown Branch",
                     Address = "123 Main Street",
                     PhoneNumber = "555-0100",
+                    Capacity = 3,
                     CreatedAt = SeedDate
                 },
                 new Branch
@@ -113,6 +115,7 @@ namespace Appointment.Server.Models
                     Name = "Suburban Plaza",
                     Address = "456 Commerce Blvd",
                     PhoneNumber = "555-0200",
+                    Capacity = 1,
                     CreatedAt = SeedDate
                 },
                 new Branch
@@ -121,6 +124,7 @@ namespace Appointment.Server.Models
                     Name = "Westside Health Center",
                     Address = "789 Park Avenue",
                     PhoneNumber = "555-0300",
+                    Capacity = 2,
                     CreatedAt = SeedDate
                 }
             );

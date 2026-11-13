@@ -221,6 +221,44 @@ public class AppointmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Branch_with_two_rooms_takes_two_bookings_at_once_but_not_three()
+    {
+        using var ctx = _db.CreateContext();
+        var svc = _db.CreateService(ctx);
+        var ten = TestDb.Tomorrow.AddHours(10);
+
+        await svc.BookAppointmentAsync(TestDb.Dto(ten, branchId: TestDb.TwoRoomBranchId));
+        var slotsAfterOne = await svc.GetAvailableSlotsAsync(TestDb.TwoRoomBranchId, TestDb.HalfHourServiceId, TestDb.Tomorrow);
+        Assert.Contains(new TimeSpan(10, 0, 0), slotsAfterOne);
+
+        await svc.BookAppointmentAsync(TestDb.Dto(ten, branchId: TestDb.TwoRoomBranchId));
+        var slotsAfterTwo = await svc.GetAvailableSlotsAsync(TestDb.TwoRoomBranchId, TestDb.HalfHourServiceId, TestDb.Tomorrow);
+        Assert.DoesNotContain(new TimeSpan(10, 0, 0), slotsAfterTwo);
+
+        await Assert.ThrowsAsync<SlotUnavailableException>(() =>
+            svc.BookAppointmentAsync(TestDb.Dto(ten, branchId: TestDb.TwoRoomBranchId)));
+    }
+
+    [Fact]
+    public async Task Capacity_is_checked_at_every_moment_not_just_by_counting_overlaps()
+    {
+        using var ctx = _db.CreateContext();
+        var svc = _db.CreateService(ctx);
+        var nine = TestDb.Tomorrow.AddHours(9);
+
+        // one hour booking from 09:00 and one half hour booking at 09:30, so both rooms are busy from 09:30
+        await svc.BookAppointmentAsync(TestDb.Dto(nine, TestDb.HourServiceId, TestDb.TwoRoomBranchId));
+        await svc.BookAppointmentAsync(TestDb.Dto(nine.AddMinutes(30), branchId: TestDb.TwoRoomBranchId));
+
+        await Assert.ThrowsAsync<SlotUnavailableException>(() =>
+            svc.BookAppointmentAsync(TestDb.Dto(nine.AddMinutes(30), branchId: TestDb.TwoRoomBranchId)));
+
+        // 09:00 to 09:30 still has a free room even though it touches both bookings
+        var result = await svc.BookAppointmentAsync(TestDb.Dto(nine, branchId: TestDb.TwoRoomBranchId));
+        Assert.Equal(nine.AddMinutes(30), result.EndTime);
+    }
+
+    [Fact]
     public async Task Slots_in_the_past_are_not_offered()
     {
         using var ctx = _db.CreateContext();

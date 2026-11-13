@@ -39,6 +39,7 @@ public sealed class TestDb : IDisposable
 {
     public static readonly Guid BranchId =     Guid.Parse("99999999-9999-9999-9999-999999999991");
     public static readonly Guid OtherBranchId = Guid.Parse("99999999-9999-9999-9999-999999999992");
+    public static readonly Guid TwoRoomBranchId = Guid.Parse("99999999-9999-9999-9999-999999999993");
     public static readonly Guid HourServiceId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     public static readonly Guid HalfHourServiceId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
     public static readonly Guid UnofferedServiceId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
@@ -57,7 +58,8 @@ public sealed class TestDb : IDisposable
 
         ctx.Branches.AddRange(
             new Branch { Id = BranchId, Name = "A", Address = "addr", PhoneNumber = "1" },
-            new Branch { Id = OtherBranchId, Name = "B", Address = "addr", PhoneNumber = "2" });
+            new Branch { Id = OtherBranchId, Name = "B", Address = "addr", PhoneNumber = "2" },
+            new Branch { Id = TwoRoomBranchId, Name = "C", Address = "addr", PhoneNumber = "3", Capacity = 2 });
         ctx.Services.AddRange(
             new Service { Id = HourServiceId, Name = "Hour", Description = "", DurationMinutes = 60 },
             new Service { Id = HalfHourServiceId, Name = "Half", Description = "", DurationMinutes = 30 },
@@ -65,7 +67,9 @@ public sealed class TestDb : IDisposable
         ctx.BranchServices.AddRange(
             new BranchService { BranchId = BranchId, ServiceId = HourServiceId },
             new BranchService { BranchId = BranchId, ServiceId = HalfHourServiceId },
-            new BranchService { BranchId = OtherBranchId, ServiceId = HalfHourServiceId });
+            new BranchService { BranchId = OtherBranchId, ServiceId = HalfHourServiceId },
+            new BranchService { BranchId = TwoRoomBranchId, ServiceId = HalfHourServiceId },
+            new BranchService { BranchId = TwoRoomBranchId, ServiceId = HourServiceId });
         ctx.SaveChanges();
     }
 

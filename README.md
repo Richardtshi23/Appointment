@@ -73,14 +73,14 @@ Errors come back as `application/problem+json` with a `message` and a `traceId`.
 
 ## Notes on how it works
 
-- **Booking rules**: 09:00 to 17:00, 30 minute slots, nothing in the past, and the appointment has to finish before closing. The branch must offer the service, and a branch can only have one appointment at a time. Hours and slot size can be changed under `Booking` in `appsettings.json`.
+- **Booking rules**: 09:00 to 17:00, 30 minute slots, nothing in the past, and the appointment has to finish before closing. The branch must offer the service, and a branch can only run as many appointments at the same time as its `Capacity` (think consulting rooms). Hours and slot size can be changed under `Booking` in `appsettings.json`.
 - **Cancelling**: customers can cancel right after booking, or later from the "Manage my booking" page (`/manage`) by entering their confirmation code and email. The simulated confirmation email contains a `/manage?code=...` link that prefills the code. Cancelling needs both the code and the email, and a wrong code and a wrong email give the same "not found" error. Both are sent in a POST body so the email stays out of URLs and logs. Appointments are never deleted, they are marked `Cancelled` so there is a history. A cancelled appointment doesn't block the slot any more. Appointments that have already started can't be cancelled.
 - **Form validation**: the booking form shows messages for a missing or badly formatted email and phone number, and the service dropdown says "Select a branch first" until a branch is picked.
 - **Errors and logging**: `ExceptionHandlingMiddleware` turns the custom exceptions into HTTP responses, and anything unexpected is logged and returned as a generic 500. Logging uses structured `ILogger` messages, and emails and phone numbers are masked in the simulated notifications.
 - **Time zones**: times are stored in UTC, but opening hours (09:00 to 17:00) are applied in South African time, set by `Booking:TimeZoneId` (default `Africa/Johannesburg`). Slots and confirmations are shown in SA time, and the client sends bookings with a `+02:00` offset. That offset is a constant in the front end (`sa-time.ts`), so it has to be changed there too if the zone is changed.
 - **Concurrency**: bookings for a branch are serialised with an in-process lock plus a SQL Server application lock (`sp_getapplock`) inside a transaction. If the lock can't be taken within 10 seconds the booking is refused with a 409 instead of carrying on. That holds with several API instances, but the SQL Server part isn't covered by the automated tests, which run on SQLite. The rate limit counters are kept in memory, so each instance counts separately. There is a test that fires parallel bookings at one slot. The lock is per branch, so other branches are not blocked.
-- **Seed data** comes from `HasData` in `AppDBContext` and has fixed CreatedAt values so it doesn't create noise in later migrations. Migrations are `InitialCreate` and `FixSeedCreatedAt`.
-- **Known limits**: a branch can only hold one appointment at a time (no staff or capacity model), and there is one time zone for the whole app rather than one per branch.
+- **Seed data** comes from `HasData` in `AppDBContext` and has fixed CreatedAt values so it doesn't create noise in later migrations. Migrations are `InitialCreate`, `FixSeedCreatedAt` and `AddBranchCapacity`.
+- **Known limits**: capacity is a single number per branch, so there are no individual staff members or rooms, and there is one time zone for the whole app rather than one per branch.
 
 ## Configuration
 
@@ -105,4 +105,4 @@ docker-compose.yml    database, db-init, API and web client
 .github/workflows/  CI: back-end tests, front-end tests and build, docker build
 ```
 
-Seed data: three branches (Downtown Branch, Suburban Plaza, Westside Health Center) and three services (General Consultation 30 min, Specialized Health Assessment 60 min, Express Check-in & Lab 15 min). Downtown offers all three, Suburban Plaza offers General and Express, and Westside offers General and Specialized.
+Seed data: three branches (Downtown Branch, Suburban Plaza, Westside Health Center) and three services (General Consultation 30 min, Specialized Health Assessment 60 min, Express Check-in & Lab 15 min). Downtown offers all three, Suburban Plaza offers General and Express, and Westside offers General and Specialized. Capacity is 3 at Downtown, 1 at Suburban Plaza and 2 at Westside.

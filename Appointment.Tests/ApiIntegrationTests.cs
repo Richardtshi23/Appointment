@@ -10,7 +10,8 @@ namespace Appointment.Tests;
 
 public class ApiIntegrationTests : IClassFixture<ApiIntegrationTests.Factory>
 {
-    private static readonly Guid Branch = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    // Suburban Plaza has a capacity of 1, so a second booking at the same time conflicts
+    private static readonly Guid Branch = Guid.Parse("11111111-1111-1111-1111-111111111112");
     private static readonly Guid Service = Guid.Parse("22222222-2222-2222-2222-222222222221");
 
     public class Factory : WebApplicationFactory<Program>

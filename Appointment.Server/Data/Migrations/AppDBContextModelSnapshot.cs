@@ -94,6 +94,11 @@ namespace Appointment.Server.Data.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<int>("Capacity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -119,6 +124,7 @@ namespace Appointment.Server.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             Address = "123 Main Street",
+                            Capacity = 3,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Downtown Branch",
                             PhoneNumber = "555-0100"
@@ -127,6 +133,7 @@ namespace Appointment.Server.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111112"),
                             Address = "456 Commerce Blvd",
+                            Capacity = 1,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Suburban Plaza",
                             PhoneNumber = "555-0200"
@@ -135,6 +142,7 @@ namespace Appointment.Server.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111113"),
                             Address = "789 Park Avenue",
+                            Capacity = 2,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Westside Health Center",
                             PhoneNumber = "555-0300"

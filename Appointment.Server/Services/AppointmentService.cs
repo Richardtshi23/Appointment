@@ -43,9 +43,9 @@ namespace Appointment.Server.Services
             var start = NormaliseToUtc(dto.StartTime);
             _logger.LogInformation("Booking requested for branch {BranchId}, service {ServiceId} at {Start:u}", dto.BranchId, dto.ServiceId, start);
 
-            var branchExists = await _context.Branches.AnyAsync(b => b.Id == dto.BranchId, ct);
-            if (!branchExists)
-                throw new NotFoundException("Selected branch not found.");
+            var capacity = await _context.Branches.Where(b => b.Id == dto.BranchId)
+                .Select(b => (int?)b.Capacity).FirstOrDefaultAsync(ct)
+                ?? throw new NotFoundException("Selected branch not found.");
 
             var service = await _context.Services.FirstOrDefaultAsync(s => s.Id == dto.ServiceId, ct)
                 ?? throw new NotFoundException("Selected service not found.");
@@ -67,13 +67,15 @@ namespace Appointment.Server.Services
                 await using var transaction = await _context.Database.BeginTransactionAsync(ct);
                 await LockBranchInDatabaseAsync(dto.BranchId, ct);
 
-                var hasConflict = await _context.Appointments.AnyAsync(a =>
-                    a.BranchId == dto.BranchId
-                    && a.Status != AppointmentStatus.Cancelled
-                    && a.StartTime < end
-                    && a.EndTime > start, ct);
+                var overlapping = await _context.Appointments.AsNoTracking()
+                    .Where(a => a.BranchId == dto.BranchId
+                                && a.Status != AppointmentStatus.Cancelled
+                                && a.StartTime < end
+                                && a.EndTime > start)
+                    .Select(a => new TimeRange(a.StartTime, a.EndTime))
+                    .ToListAsync(ct);
 
-                if (hasConflict)
+                if (IsFull(overlapping, start, end, capacity))
                 {
                     _logger.LogWarning("Slot conflict for branch {BranchId} at {Start:u}", dto.BranchId, start);
                     throw new SlotUnavailableException("This time slot is already booked. Please choose another time.");
@@ -171,12 +173,15 @@ namespace Appointment.Server.Services
             var endOfDay = TimeZoneInfo.ConvertTimeToUtc(localDay.AddDays(1), _zone);
             var now = _clock.GetUtcNow().UtcDateTime;
 
+            var capacity = await _context.Branches.Where(b => b.Id == branchId)
+                .Select(b => b.Capacity).FirstAsync(ct);
+
             var booked = await _context.Appointments.AsNoTracking()
                 .Where(a => a.BranchId == branchId
                             && a.Status != AppointmentStatus.Cancelled
                             && a.StartTime < endOfDay
                             && a.EndTime > startOfDay)
-                .Select(a => new { a.StartTime, a.EndTime })
+                .Select(a => new TimeRange(a.StartTime, a.EndTime))
                 .ToListAsync(ct);
 
             var duration = TimeSpan.FromMinutes(service.DurationMinutes);
@@ -189,12 +194,25 @@ namespace Appointment.Server.Services
                 var slotEnd = slotStart + duration;
 
                 if (slotStart <= now) continue;
-                if (booked.Any(b => b.StartTime < slotEnd && b.EndTime > slotStart)) continue;
+                if (IsFull(booked, slotStart, slotEnd, capacity)) continue;
 
                 slots.Add(t);
             }
 
             return slots;
+        }
+
+        private record TimeRange(DateTime Start, DateTime End);
+
+        // Appointments only add to the load at their own start time, so it is enough to count
+        // how many are running at the new start and at each later start inside the new window
+        private static bool IsFull(IReadOnlyCollection<TimeRange> existing, DateTime start, DateTime end, int capacity)
+        {
+            var overlapping = existing.Where(a => a.Start < end && a.End > start).ToList();
+            if (overlapping.Count < capacity) return false;
+
+            var checkPoints = overlapping.Select(a => a.Start).Where(s => s > start).Append(start);
+            return checkPoints.Any(p => overlapping.Count(a => a.Start <= p && a.End > p) >= capacity);
         }
 
         private void ValidateTime(DateTime start, DateTime end)
