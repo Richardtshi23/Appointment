@@ -3,7 +3,7 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-Your_strong_Passw0rd}"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD:-Dev_Sa_Passw0rd!}"
     volumes:
       - sql-data:/var/opt/mssql
     healthcheck:
@@ -11,6 +11,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: "${SA_PASSWORD:-Dev_Sa_Passw0rd!}"
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD:-Dev_App_Passw0rd!}"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >
+        /opt/mssql-tools18/bin/sqlcmd -C -S db -U sa -P "$$SA_PASSWORD" -b -Q
+        "IF NOT EXISTS (SELECT 1 FROM sys.sql_logins WHERE name = 'appuser')
+        BEGIN
+          CREATE LOGIN appuser WITH PASSWORD = '$$APP_DB_PASSWORD', CHECK_POLICY = OFF;
+          ALTER SERVER ROLE dbcreator ADD MEMBER appuser;
+        END"
+    restart: "no"
 
   api:
     build:
@@ -20,10 +39,18 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ConnectionStrings__DefaultConnection: "Server=db;Database=AppointmentDB;User Id=sa;Password=${SA_PASSWORD:-Your_strong_Passw0rd};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      ConnectionStrings__DefaultConnection: "Server=db;Database=AppointmentDB;User Id=appuser;Password=${APP_DB_PASSWORD:-Dev_App_Passw0rd!};TrustServerCertificate=True"
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/8080 && printf \"GET /health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q \"200 OK\" <&3'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   web:
@@ -33,7 +60,13 @@ services:
     ports:
       - "4200:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:

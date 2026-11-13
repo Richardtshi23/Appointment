@@ -31,7 +31,7 @@ WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DisableHttpsRedirection=true \
-    Swagger__Enabled=true
+    Swagger__Enabled=false
 
 COPY --from=publish /app/publish ./
 COPY --from=client-build /src/appointment.client/dist/appointment.client/browser ./wwwroot

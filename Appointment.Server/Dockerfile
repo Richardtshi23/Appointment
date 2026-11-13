@@ -16,7 +16,7 @@ WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DisableHttpsRedirection=true \
-    Swagger__Enabled=true
+    Swagger__Enabled=false
 
 COPY --from=build /app/publish ./
 

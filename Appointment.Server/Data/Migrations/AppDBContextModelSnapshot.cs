@@ -119,7 +119,7 @@ namespace Appointment.Server.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             Address = "123 Main Street",
-                            CreatedAt = new DateTime(2026, 11, 11, 8, 40, 55, 384, DateTimeKind.Utc).AddTicks(4622),
+                            CreatedAt = new DateTime(2026, 11, 12, 10, 9, 24, 491, DateTimeKind.Utc).AddTicks(5794),
                             Name = "Downtown Branch",
                             PhoneNumber = "555-0100"
                         },
@@ -127,7 +127,7 @@ namespace Appointment.Server.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111112"),
                             Address = "456 Commerce Blvd",
-                            CreatedAt = new DateTime(2026, 11, 11, 8, 40, 55, 384, DateTimeKind.Utc).AddTicks(4632),
+                            CreatedAt = new DateTime(2026, 11, 12, 10, 9, 24, 491, DateTimeKind.Utc).AddTicks(5802),
                             Name = "Suburban Plaza",
                             PhoneNumber = "555-0200"
                         },
@@ -135,7 +135,7 @@ namespace Appointment.Server.Data.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111113"),
                             Address = "789 Park Avenue",
-                            CreatedAt = new DateTime(2026, 11, 11, 8, 40, 55, 384, DateTimeKind.Utc).AddTicks(4635),
+                            CreatedAt = new DateTime(2026, 11, 12, 10, 9, 24, 491, DateTimeKind.Utc).AddTicks(5816),
                             Name = "Westside Health Center",
                             PhoneNumber = "555-0300"
                         });
@@ -226,7 +226,7 @@ namespace Appointment.Server.Data.Migrations
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222221"),
-                            CreatedAt = new DateTime(2026, 11, 11, 8, 40, 55, 384, DateTimeKind.Utc).AddTicks(4815),
+                            CreatedAt = new DateTime(2026, 11, 12, 10, 9, 24, 491, DateTimeKind.Utc).AddTicks(5995),
                             Description = "Standard 30-minute appointment slot for routine checkups",
                             DurationMinutes = 30,
                             Name = "General Consultation"
@@ -234,7 +234,7 @@ namespace Appointment.Server.Data.Migrations
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
-                            CreatedAt = new DateTime(2026, 11, 11, 8, 40, 55, 384, DateTimeKind.Utc).AddTicks(4932),
+                            CreatedAt = new DateTime(2026, 11, 12, 10, 9, 24, 491, DateTimeKind.Utc).AddTicks(6001),
                             Description = "Comprehensive 60-minute in-depth review",
                             DurationMinutes = 60,
                             Name = "Specialized Health Assessment"
@@ -242,7 +242,7 @@ namespace Appointment.Server.Data.Migrations
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222223"),
-                            CreatedAt = new DateTime(2026, 11, 11, 8, 40, 55, 384, DateTimeKind.Utc).AddTicks(4936),
+                            CreatedAt = new DateTime(2026, 11, 12, 10, 9, 24, 491, DateTimeKind.Utc).AddTicks(6005),
                             Description = "Quick 15-minute diagnostic drop-off or quick consult",
                             DurationMinutes = 15,
                             Name = "Express Check-in & Lab"
